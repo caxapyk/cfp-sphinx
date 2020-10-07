@@ -36,6 +36,8 @@ class CfpSphinx(object):
         self.root_dir = os.path.join(
             os.path.abspath(os.getcwd()), 'nsa', 'cfp')
 
+        self.root_title = 'Территория'
+
         # cfp/gubernia/index.rst
         # cfp/gubernia/<:id>/uezd/index.rst
         # cfp/gubernia/<:id>/uezd/<:id>/locality/index.rst
@@ -63,11 +65,11 @@ class CfpSphinx(object):
         {_title_}
 
         .. list-table::
-           :widths: 5, 15, 15, 5, 10, 30
            :header-rows: 1
 
            * - #
              - Вид документа
+             - Годы
              - Шифр
              - Листов
              - Примечание
@@ -109,6 +111,82 @@ class CfpSphinx(object):
         """Underline heder name"""
         return '%s\n' % name + ('=' * len(name))
 
+    def format_table_row(self, cols, counter):
+        _row = self.format3('* - ' + str(counter) + '\n')
+
+        for col in cols:
+            if col is not None:
+                # escape newlines
+                col = str(col).replace('\n', '\n\n       ')
+            else:
+                col = ''
+
+            _row += self.format3('  - ' + col + '\n')
+
+        return _row
+
+    def make_abbr(self, string, before_separator=',', after_separator='/'):
+        abbr = ""
+
+        if string is None:
+            return abbr
+
+        words = string.split(before_separator)
+
+        # one item one word
+        if len(words) == 1 and len(words[0].split()) == 1:
+            return words[0]
+
+        # more the one item
+        for item in words:
+            # item has one word - do not split
+            if len(item.split()) == 1:
+                abbr += item + after_separator
+                break
+            # make abbr
+            for i, word in enumerate(item.upper().split()):
+                if i > 2:
+                    break
+                abbr += word[0]
+            abbr += after_separator
+
+        return abbr[:-1]
+
+    def make_years_range(self, years, separator=','):
+        y_str = ""
+
+        if years is None:
+            return y_str
+
+        y_list = years.split(separator)
+        i = 0
+        count = 0
+
+        while i <= len(y_list) - 1:
+            j = i
+            delimeter = ", "
+            while j < len(y_list) - 1:
+                curr_y = int(y_list[j])
+                next_y = int(y_list[j + 1])
+                if (next_y - curr_y) == 1:
+                    count += 1
+                else:
+                    break
+                j += 1
+
+            if count > 1:
+                delimeter = "-"
+
+            while count:
+                if count > 1:
+                    del y_list[i + 1]
+                count -= 1
+
+            y_str += "%s%s" % (y_list[i], delimeter)
+            i += 1
+
+        return y_str[:-2]
+
     def __gen_tree_index(self, path, title='', maxdepth=1, members=''):
         """Creates RST index file using template"""
         rst = self.tree_templ.format(
@@ -137,11 +215,12 @@ class CfpSphinx(object):
 
             self.__gen_uezds(g_id, g_name, child_dir)
 
-            print("\r%s\tDone!     " %
+            print("\r%s\tDone!       " %
                   self.__current_gub, end='\n', flush=True)
 
         self.__gen_tree_index(
             self.root_dir,
+            title=self.format_header(self.root_title),
             members=_g_list,
             maxdepth=2)
 
@@ -207,22 +286,31 @@ class CfpSphinx(object):
             members=_ch_list)
 
     def __gen_datasheets(self, ch_id, ch_name, pdir):
-        #query = "SELECT \
-        #(SELECT GROUP_CONCAT(cfp_docflag.name ORDER BY cfp_docflag.name SEPARATOR '/') \
-        #FROM cfp_docflags LEFT JOIN cfp_docflag \
-        #ON cfp_docflags.docflag_id=cfp_docflag.id \
-        #WHERE cfp_docflags.doc_id=%s) AS flags \
-        #FROM cfp_docflags WHERE cfp_docflags.doc_id=%s" % (doc_id, doc_id)
-
         self.cur.execute(
             "SELECT cfp_doctype.name AS dtname, \
-            CONCAT('Ф.', cfp_fund.name, ' Оп.', cfp_doc.inventory, ' Д.', cfp_doc.unit) AS unit, \
+            ( \
+                SELECT \
+                GROUP_CONCAT(cfp_docyears.year \
+                                ORDER BY cfp_docyears.year SEPARATOR ',') \
+                FROM cfp_docyears \
+                WHERE cfp_docyears.doc_id=cfp_doc.id \
+            ) AS years, \
+            CONCAT( \
+                    'Ф.', cfp_fund.name, \
+                    ' Оп.', cfp_doc.inventory, \
+                    ' Д.', cfp_doc.unit \
+            ) AS unit, \
             cfp_doc.sheets, \
-            (SELECT GROUP_CONCAT(cfp_docflag.name ORDER BY cfp_docflag.name SEPARATOR ', ') \
-            FROM cfp_docflags LEFT JOIN cfp_docflag \
-            ON cfp_docflags.docflag_id=cfp_docflag.id \
-            WHERE cfp_docflags.doc_id=cfp_doc.id) AS flags, \
-            cfp_doc.comment FROM cfp_doc \
+            ( \
+                SELECT \
+                GROUP_CONCAT(cfp_docflag.name \
+                                ORDER BY cfp_docflag.name SEPARATOR ',') \
+                FROM cfp_docflags LEFT JOIN cfp_docflag \
+                ON cfp_docflags.docflag_id=cfp_docflag.id \
+                WHERE cfp_docflags.doc_id=cfp_doc.id \
+            ) AS flags, \
+            cfp_doc.comment AS comment \
+            FROM cfp_doc \
             LEFT JOIN cfp_doctype ON cfp_doc.doctype_id=cfp_doctype.id \
             LEFT JOIN cfp_fund ON cfp_doc.fund_id=cfp_fund.id \
             WHERE cfp_doc.church_id=?", (ch_id,))
@@ -231,16 +319,12 @@ class CfpSphinx(object):
         table = ''
         counter = 1
 
-        for row in data:
-            _s = self.format3('* - ' + str(counter) + '\n')
-            for col in row:
-                if col is not None:
-                    col = str(col).replace('\n', '\n\n       ')
-                else:
-                    col = ''
-                _s += self.format3('  - ' + col + '\n')
+        for (dtname, years, unit, sheets, flags, comment) in data:
+            years = self.make_years_range(years)
+            flags = self.make_abbr(flags)
 
-            table += _s
+            table += self.format_table_row(
+                (dtname, years, unit, sheets, flags, comment), counter)
             counter += 1
 
         rst = self.datasheet_templ.format(
