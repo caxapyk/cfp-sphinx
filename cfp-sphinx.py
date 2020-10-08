@@ -34,7 +34,7 @@ class CfpSphinx(object):
         self.cur = conn.cursor()
 
         self.root_dir = os.path.join(
-            os.path.abspath(os.getcwd()), 'nsa', 'cfp')
+            os.path.abspath(os.getcwd()), 'cfp')
 
         self.root_title = 'Административно-территориальное деление'
         self.index_filename = 'index.rst'
