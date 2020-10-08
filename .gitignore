@@ -1,2 +1,5 @@
 /venv
-/nsa
+/cfp/_build
+/cfp/_static
+/cfp/_templates
+/cfp/gubernia

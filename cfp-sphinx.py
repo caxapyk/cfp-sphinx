@@ -37,6 +37,7 @@ class CfpSphinx(object):
             os.path.abspath(os.getcwd()), 'cfp')
 
         self.root_title = 'Административно-территориальное деление'
+        self.root_filename = 'cfp.rst'
         self.index_filename = 'index.rst'
 
         # cfp/gubernia/index.rst
@@ -207,7 +208,7 @@ class CfpSphinx(object):
             _members_=_g_list,
             _maxdepth_=2)
 
-        self.file_write(pj(self.root_dir, self.index_filename), rst)
+        self.file_write(pj(self.root_dir, self.root_filename), rst)
 
     def __gen_uezds(self, g_id, g_name, pdir):
         self.cur.execute(
