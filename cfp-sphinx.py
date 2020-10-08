@@ -36,7 +36,8 @@ class CfpSphinx(object):
         self.root_dir = os.path.join(
             os.path.abspath(os.getcwd()), 'nsa', 'cfp')
 
-        self.root_title = 'Территория'
+        self.root_title = 'Административно-территориальное деление'
+        self.index_filename = 'index.rst'
 
         # cfp/gubernia/index.rst
         # cfp/gubernia/<:id>/uezd/index.rst
@@ -87,14 +88,6 @@ class CfpSphinx(object):
             os.makedirs(os.path.join(self.root_dir, path), exist_ok=True)
         except OSError as e:
             print(f"Could not create directory: {e}")
-            sys.exit(1)
-
-    def cd(self, path):
-        """ Change current directory"""
-        try:
-            os.chdir(os.path.join(self.root_dir, path))
-        except OSError as e:
-            print(f"Could not change directory: {e}")
             sys.exit(1)
 
     def file_write(self, fn, rst):
@@ -187,15 +180,6 @@ class CfpSphinx(object):
 
         return y_str[:-2]
 
-    def __gen_tree_index(self, path, title='', maxdepth=1, members=''):
-        """Creates RST index file using template"""
-        rst = self.tree_templ.format(
-            _title_=title,
-            _maxdepth_=maxdepth,
-            _members_=members)
-
-        self.file_write(pj(path, 'index.rst'), rst)
-
     def __gen_gubernias(self, root_dir):
         self.make_dirs(root_dir)
 
@@ -218,11 +202,12 @@ class CfpSphinx(object):
             print("\r%s\tDone!       " %
                   self.__current_gub, end='\n', flush=True)
 
-        self.__gen_tree_index(
-            self.root_dir,
-            title=self.format_header(self.root_title),
-            members=_g_list,
-            maxdepth=2)
+        rst = self.tree_templ.format(
+            _title_=self.format_header(self.root_title),
+            _members_=_g_list,
+            _maxdepth_=2)
+
+        self.file_write(pj(self.root_dir, self.index_filename), rst)
 
     def __gen_uezds(self, g_id, g_name, pdir):
         self.cur.execute(
@@ -239,11 +224,12 @@ class CfpSphinx(object):
 
             self.__gen_localities(u_id, u_name, child_dir)
 
-        self.__gen_tree_index(
-            path=pdir,
-            title=self.format_header(g_name),
-            members=_u_list,
-            maxdepth=2)
+        rst = self.tree_templ.format(
+            _title_=self.format_header(g_name),
+            _members_=_u_list,
+            _maxdepth_=2)
+
+        self.file_write(pj(pdir, self.index_filename), rst)
 
     def __gen_localities(self, u_id, u_name, pdir):
         self.cur.execute(
@@ -260,10 +246,12 @@ class CfpSphinx(object):
 
             self.__gen_churches(l_id, l_name, child_dir)
 
-        self.__gen_tree_index(
-            path=pdir,
-            title=self.format_header(u_name),
-            members=_l_list)
+        rst = self.tree_templ.format(
+            _title_=self.format_header(u_name),
+            _members_=_l_list,
+            _maxdepth_=1)
+
+        self.file_write(pj(pdir, self.index_filename), rst)
 
     def __gen_churches(self, l_id, l_name, pdir):
         self.cur.execute(
@@ -280,10 +268,12 @@ class CfpSphinx(object):
 
             self.__gen_datasheets(ch_id, ch_name, child_dir)
 
-        self.__gen_tree_index(
-            path=pdir,
-            title=self.format_header(l_name),
-            members=_ch_list)
+        rst = self.tree_templ.format(
+            _title_=self.format_header(l_name),
+            _members_=_ch_list,
+            _maxdepth_=1)
+
+        self.file_write(pj(pdir, self.index_filename), rst)
 
     def __gen_datasheets(self, ch_id, ch_name, pdir):
         self.cur.execute(
@@ -331,7 +321,8 @@ class CfpSphinx(object):
             _index_=ch_name,
             _title_=self.format_header(ch_name),
             _datasheet_=table)
-        self.file_write(pj(pdir, 'index.rst'), rst)
+
+        self.file_write(pj(pdir, self.index_filename), rst)
 
     def generate(self):
         self.__gen_gubernias(self.root_dir)
