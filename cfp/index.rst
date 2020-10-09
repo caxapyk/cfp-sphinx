@@ -3,7 +3,7 @@
 .. toctree::
    :maxdepth: 3
 
-   cfp
+   pages/index
 
 .. toctree::
    :maxdepth: 1

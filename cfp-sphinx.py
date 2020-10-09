@@ -2,6 +2,7 @@ import argparse
 import mariadb
 import os
 import textwrap
+import shutil
 import sys
 import time
 
@@ -34,10 +35,9 @@ class CfpSphinx(object):
         self.cur = conn.cursor()
 
         self.root_dir = os.path.join(
-            os.path.abspath(os.getcwd()), 'cfp')
+            os.path.abspath(os.getcwd()), 'cfp', 'pages')
 
         self.root_title = 'Административно-территориальное деление'
-        self.root_filename = 'cfp.rst'
         self.index_filename = 'index.rst'
 
         # cfp/gubernia/index.rst
@@ -96,6 +96,10 @@ class CfpSphinx(object):
         file = open(os.path.join(self.root_dir, fn), 'w+')
         file.write(rst)
         file.close()
+
+    def clear(self):
+        if os.path.exists(self.root_dir):
+            shutil.rmtree(self.root_dir)
 
     def format3(self, name):
         """Prepend 3 wite spaces."""
@@ -184,7 +188,7 @@ class CfpSphinx(object):
     def __gen_gubernias(self, root_dir):
         self.make_dirs(root_dir)
 
-        self.cur.execute("SELECT id, name FROM cfp_gubernia")
+        self.cur.execute("SELECT id, name FROM cfp_gubernia ORDER BY id")
         gubernias = self.cur.fetchall()
 
         _g_list = ''
@@ -208,11 +212,11 @@ class CfpSphinx(object):
             _members_=_g_list,
             _maxdepth_=2)
 
-        self.file_write(pj(self.root_dir, self.root_filename), rst)
+        self.file_write(pj(self.root_dir, self.index_filename), rst)
 
     def __gen_uezds(self, g_id, g_name, pdir):
         self.cur.execute(
-            "SELECT id, name FROM cfp_uezd WHERE gub_id=?", (g_id,))
+            "SELECT id, name FROM cfp_uezd WHERE gub_id=? ORDER BY name", (g_id,))
         uezds = self.cur.fetchall()
 
         _u_list = ''
@@ -234,7 +238,7 @@ class CfpSphinx(object):
 
     def __gen_localities(self, u_id, u_name, pdir):
         self.cur.execute(
-            "SELECT id, name FROM cfp_locality WHERE uezd_id=?", (u_id,))
+            "SELECT id, name FROM cfp_locality WHERE uezd_id=? ORDER BY name", (u_id,))
         localities = self.cur.fetchall()
 
         _l_list = ''
@@ -256,7 +260,7 @@ class CfpSphinx(object):
 
     def __gen_churches(self, l_id, l_name, pdir):
         self.cur.execute(
-            "SELECT id, name FROM cfp_church WHERE locality_id=?", (l_id,))
+            "SELECT id, name FROM cfp_church WHERE locality_id=? ORDER BY name", (l_id,))
         churches = self.cur.fetchall()
 
         _ch_list = ''
@@ -304,7 +308,8 @@ class CfpSphinx(object):
             FROM cfp_doc \
             LEFT JOIN cfp_doctype ON cfp_doc.doctype_id=cfp_doctype.id \
             LEFT JOIN cfp_fund ON cfp_doc.fund_id=cfp_fund.id \
-            WHERE cfp_doc.church_id=?", (ch_id,))
+            WHERE cfp_doc.church_id=? \
+            ORDER BY dtname", (ch_id,))
         data = self.cur.fetchall()
 
         table = ''
@@ -326,6 +331,9 @@ class CfpSphinx(object):
         self.file_write(pj(pdir, self.index_filename), rst)
 
     def generate(self):
+        # clear data before generating
+        self.clear()
+        # start recursy from gubernias
         self.__gen_gubernias(self.root_dir)
 
 
