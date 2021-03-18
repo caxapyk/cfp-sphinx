@@ -33,6 +33,7 @@ class CfpSphinx(object):
             sys.exit(1)
 
         self.cur = conn.cursor()
+        self.cur.execute("SET NAMES utf8")
 
         self.root_dir = os.path.join(
             os.path.abspath(os.getcwd()), 'cfp', 'pages')
@@ -93,7 +94,7 @@ class CfpSphinx(object):
 
     def file_write(self, fn, rst):
         """Writes RST content to file, creates one if not exists"""
-        file = open(os.path.join(self.root_dir, fn), 'w+')
+        file = open(os.path.join(self.root_dir, fn), 'w+', encoding="utf-8")
         file.write(rst)
         file.close()
 
